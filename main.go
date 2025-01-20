@@ -3,10 +3,12 @@ package main
 import "net/http"
 
 func main() {
-	servemux := http.NewServeMux()
-	servemux.Handle("/", http.FileServer(http.Dir(".")))
+	mux := http.NewServeMux()
+	fileServer := http.FileServer(http.Dir("."))
+	mux.Handle("/app/", http.StripPrefix("/app", fileServer))
+	mux.HandleFunc("/healthz", handler)
 	server := &http.Server{
-		Handler: servemux,
+		Handler: mux,
 		Addr:    ":8080",
 	}
 
