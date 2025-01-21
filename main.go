@@ -9,9 +9,9 @@ func main() {
 	fileServer := http.FileServer(http.Dir("."))
 	apiCfg := newApiConfig()
 	mux.Handle("/app/", apiCfg.middlewareMetricsInc(http.StripPrefix("/app", fileServer)))
-	mux.HandleFunc("/healthz", handlerHealth)
-	mux.HandleFunc("/metrics", apiCfg.handlerHits)
-	mux.HandleFunc("/reset", apiCfg.handlerReset)
+	mux.HandleFunc("GET /api/healthz", handlerHealth)
+	mux.HandleFunc("GET /admin/metrics", apiCfg.handlerHits)
+	mux.HandleFunc("POST /admin/reset", apiCfg.handlerReset)
 	server := &http.Server{
 		Handler: mux,
 		Addr:    ":8080",
