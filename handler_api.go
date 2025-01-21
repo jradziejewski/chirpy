@@ -10,7 +10,6 @@ import (
 )
 
 func (cfg *apiConfig) handlerCreateUser(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	type parameters struct {
 		Email string `json:"email"`
 	}
@@ -21,14 +20,13 @@ func (cfg *apiConfig) handlerCreateUser(w http.ResponseWriter, r *http.Request) 
 		Email     string    `json:"email"`
 	}
 	resp := returnVals{}
-	statusCode := 201
 	params := parameters{}
 
 	decoder := json.NewDecoder(r.Body)
 
 	err := decoder.Decode(&params)
 	if err != nil {
-		writeSomethingWentWrong(w, nil, err)
+		respondWithError(w, 500, err.Error(), err)
 		return
 	}
 
@@ -42,7 +40,7 @@ func (cfg *apiConfig) handlerCreateUser(w http.ResponseWriter, r *http.Request) 
 
 	user, err := cfg.db.CreateUser(r.Context(), userParams)
 	if err != nil {
-		writeSomethingWentWrong(w, nil, err)
+		respondWithError(w, 500, err.Error(), err)
 		return
 	}
 	resp.ID = user.ID
@@ -50,13 +48,7 @@ func (cfg *apiConfig) handlerCreateUser(w http.ResponseWriter, r *http.Request) 
 	resp.CreatedAt = user.CreatedAt
 	resp.UpdatedAt = user.UpdatedAt
 
-	dat, err := json.Marshal(resp)
-	if err != nil {
-		writeSomethingWentWrong(w, nil, err)
-		return
-	}
-	w.WriteHeader(statusCode)
-	w.Write(dat)
+	respondWithJson(w, 201, resp)
 }
 
 func handlerHealth(w http.ResponseWriter, r *http.Request) {
@@ -66,7 +58,6 @@ func handlerHealth(w http.ResponseWriter, r *http.Request) {
 }
 
 func handlerValidateChirp(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	type parameters struct {
 		Body string `json:"body"`
 	}
@@ -75,35 +66,21 @@ func handlerValidateChirp(w http.ResponseWriter, r *http.Request) {
 		CleanedBody string `json:"cleaned_body"`
 	}
 	resp := returnVals{}
-	statusCode := 200
 
 	decoder := json.NewDecoder(r.Body)
 	params := parameters{}
 
 	err := decoder.Decode(&params)
 	if err != nil {
-		errResp := returnVals{
-			Error: "Something went wrong",
-		}
-		writeSomethingWentWrong(w, errResp, err)
+		respondWithError(w, 500, "Something went wrong", err)
 		return
 	}
 
 	if len(params.Body) > 140 {
-		statusCode = 400
 		resp.Error = "Chirp is too long"
 	} else {
 		resp.CleanedBody = replaceProfane(params.Body)
 	}
 
-	dat, err := json.Marshal(resp)
-	if err != nil {
-		errResp := returnVals{
-			Error: "Something went wrong",
-		}
-		writeSomethingWentWrong(w, errResp, err)
-		return
-	}
-	w.WriteHeader(statusCode)
-	w.Write(dat)
+	respondWithJson(w, 200, resp)
 }

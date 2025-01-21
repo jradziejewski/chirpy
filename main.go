@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
 	"net/http"
 	"os"
 
@@ -46,8 +47,10 @@ func main() {
 		Addr:    ":8080",
 	}
 
+	fmt.Println("Chirpy server started!")
 	err = server.ListenAndServe()
 	if err != nil {
+		fmt.Println("Chirpy server started!")
 		os.Exit(1)
 	}
 }

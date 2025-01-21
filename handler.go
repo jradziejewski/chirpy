@@ -30,7 +30,8 @@ func (cfg *apiConfig) handlerReset(w http.ResponseWriter, r *http.Request) {
 	cfg.fileserverHits.Store(0)
 	err := cfg.db.DeleteUsers(r.Context())
 	if err != nil {
-		writeSomethingWentWrong(w, nil, err)
+		w.WriteHeader(500)
+		w.Write([]byte("Error deleting users"))
 		return
 	}
 	w.Write([]byte("OK"))

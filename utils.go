@@ -7,12 +7,33 @@ import (
 	"strings"
 )
 
-func writeSomethingWentWrong(w http.ResponseWriter, errResp any, err error) {
-	log.Printf("Error marshalling JSON: %s", err)
-	if errDat, err := json.Marshal(errResp); err == nil {
-		w.WriteHeader(500)
-		w.Write(errDat)
+func respondWithError(w http.ResponseWriter, code int, msg string, err error) {
+	if err != nil {
+		log.Println(err)
 	}
+	if code > 499 {
+		log.Printf("Responding with 5xx error: %s", msg)
+	}
+
+	type errorResponse struct {
+		Error string `json:"error"`
+	}
+	respondWithJson(w, code, errorResponse{
+		Error: msg,
+	})
+}
+
+func respondWithJson(w http.ResponseWriter, code int, payload interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	dat, err := json.Marshal(payload)
+	if err != nil {
+		log.Printf("Error marshaling json: %s", err)
+		w.WriteHeader(500)
+		return
+	}
+
+	w.WriteHeader(code)
+	w.Write(dat)
 }
 
 func replaceProfane(text string) string {
