@@ -9,7 +9,10 @@ func main() {
 	fileServer := http.FileServer(http.Dir("."))
 	apiCfg := newApiConfig()
 	mux.Handle("/app/", apiCfg.middlewareMetricsInc(http.StripPrefix("/app", fileServer)))
+
 	mux.HandleFunc("GET /api/healthz", handlerHealth)
+	mux.HandleFunc("POST /api/validate_chirp", handlerValidateChirp)
+
 	mux.HandleFunc("GET /admin/metrics", apiCfg.handlerHits)
 	mux.HandleFunc("POST /admin/reset", apiCfg.handlerReset)
 	server := &http.Server{
