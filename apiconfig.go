@@ -2,14 +2,17 @@ package main
 
 import (
 	"net/http"
+	"os"
 	"sync/atomic"
 
+	"github.com/joho/godotenv"
 	"github.com/jradziejewski/chirpy/internal/database"
 )
 
 type apiConfig struct {
 	fileserverHits atomic.Int32
 	db             *database.Queries
+	platform       string
 }
 
 func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
@@ -20,8 +23,11 @@ func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
 }
 
 func newApiConfig(db *database.Queries) *apiConfig {
+	godotenv.Load()
+	platform := os.Getenv("PLATFORM")
 	cfg := &apiConfig{}
 	cfg.fileserverHits.Store(0)
 	cfg.db = db
+	cfg.platform = platform
 	return cfg
 }
