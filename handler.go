@@ -39,8 +39,8 @@ func handlerValidateChirp(w http.ResponseWriter, r *http.Request) {
 		Body string `json:"body"`
 	}
 	type returnVals struct {
-		Error string `json:"error"`
-		Valid bool   `json:"valid"`
+		Error       string `json:"error"`
+		CleanedBody string `json:"cleaned_body"`
 	}
 	resp := returnVals{}
 	statusCode := 200
@@ -51,7 +51,6 @@ func handlerValidateChirp(w http.ResponseWriter, r *http.Request) {
 	err := decoder.Decode(&params)
 	if err != nil {
 		errResp := returnVals{
-			Valid: false,
 			Error: "Something went wrong",
 		}
 		writeSomethingWentWrong(w, errResp, err)
@@ -60,16 +59,14 @@ func handlerValidateChirp(w http.ResponseWriter, r *http.Request) {
 
 	if len(params.Body) > 140 {
 		statusCode = 400
-		resp.Valid = false
 		resp.Error = "Chirp is too long"
 	} else {
-		resp.Valid = true
+		resp.CleanedBody = replaceProfane(params.Body)
 	}
 
 	dat, err := json.Marshal(resp)
 	if err != nil {
 		errResp := returnVals{
-			Valid: false,
 			Error: "Something went wrong",
 		}
 		writeSomethingWentWrong(w, errResp, err)

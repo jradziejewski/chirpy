@@ -1,13 +1,38 @@
 package main
 
 import (
+	"database/sql"
 	"net/http"
+	"os"
+
+	"github.com/joho/godotenv"
+	"github.com/jradziejewski/chirpy/internal/database"
+	_ "github.com/lib/pq"
 )
 
 func main() {
+	err := godotenv.Load()
+	if err != nil {
+		os.Exit(1)
+	}
+
+	dbUrl := os.Getenv("DB_URL")
+
+	db, err := sql.Open("postgres", dbUrl)
+	if err != nil {
+		os.Exit(1)
+	}
+
+	err = db.Ping()
+	if err != nil {
+		os.Exit(1)
+	}
+
+	dbQueries := database.New(db)
+
 	mux := http.NewServeMux()
 	fileServer := http.FileServer(http.Dir("."))
-	apiCfg := newApiConfig()
+	apiCfg := newApiConfig(dbQueries)
 	mux.Handle("/app/", apiCfg.middlewareMetricsInc(http.StripPrefix("/app", fileServer)))
 
 	mux.HandleFunc("GET /api/healthz", handlerHealth)
@@ -20,5 +45,8 @@ func main() {
 		Addr:    ":8080",
 	}
 
-	server.ListenAndServe()
+	err = server.ListenAndServe()
+	if err != nil {
+		os.Exit(1)
+	}
 }
