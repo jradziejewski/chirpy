@@ -1,13 +1,17 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"net/http"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jradziejewski/chirpy/internal/auth"
 	"github.com/jradziejewski/chirpy/internal/database"
 )
+
+// Chirps
 
 type ChirpResponse struct {
 	ID        uuid.UUID `json:"id"`
@@ -122,17 +126,57 @@ func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request)
 	respondWithJson(w, 201, resp)
 }
 
+// Users
+
+type UserResponse struct {
+	ID        uuid.UUID `json:"id"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+	Email     string    `json:"email"`
+}
+
+func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
+	type parameters struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
+	resp := UserResponse{}
+	params := parameters{}
+
+	decoder := json.NewDecoder(r.Body)
+
+	err := decoder.Decode(&params)
+	if err != nil {
+		respondWithError(w, 400, "Error decoding JSON", err)
+		return
+	}
+
+	user, err := cfg.db.GetUserByEmail(r.Context(), params.Email)
+	if err != nil {
+		respondWithError(w, 401, "Wrong credentials", err)
+		return
+	}
+
+	err = auth.CheckPasswordHash(params.Password, user.HashedPassword.String)
+	if err != nil {
+		respondWithError(w, 401, "Wrong credentials", err)
+		return
+	}
+
+	resp.ID = user.ID
+	resp.Email = user.Email
+	resp.CreatedAt = user.CreatedAt
+	resp.UpdatedAt = user.UpdatedAt
+
+	respondWithJson(w, 200, resp)
+}
+
 func (cfg *apiConfig) handlerCreateUser(w http.ResponseWriter, r *http.Request) {
 	type parameters struct {
-		Email string `json:"email"`
+		Email    string `json:"email"`
+		Password string `json:"password"`
 	}
-	type returnVals struct {
-		ID        uuid.UUID `json:"id"`
-		CreatedAt time.Time `json:"created_at"`
-		UpdatedAt time.Time `json:"updated_at"`
-		Email     string    `json:"email"`
-	}
-	resp := returnVals{}
+	resp := UserResponse{}
 	params := parameters{}
 
 	decoder := json.NewDecoder(r.Body)
@@ -143,12 +187,22 @@ func (cfg *apiConfig) handlerCreateUser(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	hashedPassword, err := auth.HashPassword(params.Password)
+	if err != nil {
+		respondWithError(w, 500, "Error hashing password", err)
+		return
+	}
+
 	now := time.Now().UTC()
 	userParams := database.CreateUserParams{
 		ID:        uuid.New(),
 		CreatedAt: now,
 		UpdatedAt: now,
 		Email:     params.Email,
+		HashedPassword: sql.NullString{
+			String: hashedPassword,
+			Valid:  true,
+		},
 	}
 
 	user, err := cfg.db.CreateUser(r.Context(), userParams)
@@ -163,6 +217,8 @@ func (cfg *apiConfig) handlerCreateUser(w http.ResponseWriter, r *http.Request) 
 
 	respondWithJson(w, 201, resp)
 }
+
+// Metrics
 
 func handlerHealth(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
