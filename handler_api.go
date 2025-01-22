@@ -9,6 +9,67 @@ import (
 	"github.com/jradziejewski/chirpy/internal/database"
 )
 
+func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request) {
+	type parameters struct {
+		Body   string `json:"body"`
+		UserID string `json:"user_id"`
+	}
+	type returnVals struct {
+		ID        uuid.UUID `json:"id"`
+		CreatedAt time.Time `json:"created_at"`
+		UpdatedAt time.Time `json:"updated_at"`
+		Body      string    `json:"body"`
+		UserID    uuid.UUID `json:"user_id"`
+	}
+	resp := returnVals{}
+	params := parameters{}
+
+	decoder := json.NewDecoder(r.Body)
+	err := decoder.Decode(&params)
+	if err != nil {
+		respondWithError(w, 500, "Error decoding JSON", err)
+		return
+	}
+
+	if len(params.Body) > 140 {
+		respondWithError(w, 400, "Body too long", nil)
+		return
+	} else if len(params.Body) == 0 {
+		respondWithError(w, 400, "Empty body", nil)
+		return
+	}
+
+	cleanBody := replaceProfane(params.Body)
+	userID, err := uuid.Parse(params.UserID)
+	if err != nil {
+		respondWithError(w, 400, "Provided UserID could not be parsed", err)
+		return
+	}
+
+	now := time.Now().UTC()
+	chirpParams := database.CreateChirpParams{
+		ID:        uuid.New(),
+		CreatedAt: now,
+		UpdatedAt: now,
+		Body:      cleanBody,
+		UserID:    userID,
+	}
+
+	chirp, err := cfg.db.CreateChirp(r.Context(), chirpParams)
+	if err != nil {
+		respondWithError(w, 500, "Error creating chirp", err)
+		return
+	}
+
+	resp.ID = chirp.ID
+	resp.CreatedAt = chirp.CreatedAt
+	resp.UpdatedAt = chirp.UpdatedAt
+	resp.Body = chirp.Body
+	resp.UserID = chirp.UserID
+
+	respondWithJson(w, 201, resp)
+}
+
 func (cfg *apiConfig) handlerCreateUser(w http.ResponseWriter, r *http.Request) {
 	type parameters struct {
 		Email string `json:"email"`
@@ -26,7 +87,7 @@ func (cfg *apiConfig) handlerCreateUser(w http.ResponseWriter, r *http.Request) 
 
 	err := decoder.Decode(&params)
 	if err != nil {
-		respondWithError(w, 500, err.Error(), err)
+		respondWithError(w, 500, "Error decoding JSON", err)
 		return
 	}
 
@@ -40,7 +101,7 @@ func (cfg *apiConfig) handlerCreateUser(w http.ResponseWriter, r *http.Request) 
 
 	user, err := cfg.db.CreateUser(r.Context(), userParams)
 	if err != nil {
-		respondWithError(w, 500, err.Error(), err)
+		respondWithError(w, 500, "Error creating user", err)
 		return
 	}
 	resp.ID = user.ID
@@ -55,32 +116,4 @@ func handlerHealth(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.WriteHeader(200)
 	w.Write([]byte("OK"))
-}
-
-func handlerValidateChirp(w http.ResponseWriter, r *http.Request) {
-	type parameters struct {
-		Body string `json:"body"`
-	}
-	type returnVals struct {
-		Error       string `json:"error"`
-		CleanedBody string `json:"cleaned_body"`
-	}
-	resp := returnVals{}
-
-	decoder := json.NewDecoder(r.Body)
-	params := parameters{}
-
-	err := decoder.Decode(&params)
-	if err != nil {
-		respondWithError(w, 500, "Something went wrong", err)
-		return
-	}
-
-	if len(params.Body) > 140 {
-		resp.Error = "Chirp is too long"
-	} else {
-		resp.CleanedBody = replaceProfane(params.Body)
-	}
-
-	respondWithJson(w, 200, resp)
 }

@@ -28,11 +28,22 @@ func (cfg *apiConfig) handlerReset(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(200)
 	cfg.fileserverHits.Store(0)
+
+	// Delete users
 	err := cfg.db.DeleteUsers(r.Context())
 	if err != nil {
 		w.WriteHeader(500)
 		w.Write([]byte("Error deleting users"))
 		return
 	}
+
+	// Delete chirps
+	err = cfg.db.DeleteChirps(r.Context())
+	if err != nil {
+		w.WriteHeader(500)
+		w.Write([]byte("Error deleting chirps"))
+		return
+	}
+
 	w.Write([]byte("OK"))
 }
