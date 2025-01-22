@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"net/http"
 	"testing"
 	"time"
 
@@ -104,5 +105,34 @@ func TestValidateJWT(t *testing.T) {
 	returnedUserID, err = ValidateJWT(tokenString, tokenSecret)
 	if err == nil {
 		t.Fatalf("ValidateJWT(%v, %v): expected error, got no error", tokenString, tokenSecret)
+	}
+}
+
+func TestGetBearerToken(t *testing.T) {
+	header := http.Header{}
+	header.Add("Authorization", "Bearer 1234")
+
+	token, err := GetBearerToken(header)
+	if err != nil {
+		t.Fatalf(`GetBearerToken("Authorization": "Bearer 1234"): expected no error, got %v`, err)
+	}
+	if token != "1234" {
+		t.Fatalf(`GetBearerToken("Authorization": "Bearer 1234"): expected "1234", got %s`, token)
+	}
+
+	header = http.Header{}
+	header.Add("UselessHeader", ":)")
+	token, err = GetBearerToken(header)
+
+	if err == nil {
+		t.Fatalf(`GetBearerToken("UselssHeader": ":)"): expected error, got no error`)
+	}
+
+	header = http.Header{}
+	header.Add("Authorization", "Bear :)")
+	token, err = GetBearerToken(header)
+
+	if err == nil {
+		t.Fatalf(`GetBearerToken("Authorization": "Bear :)"): expected error, got no error`)
 	}
 }
