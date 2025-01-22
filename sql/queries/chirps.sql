@@ -9,5 +9,9 @@ values (
 )
 returning *;
 
+-- name: GetChirps :many
+select * from chirps
+order by created_at;
+
 -- name: DeleteChirps :exec
 DELETE FROM chirps;
