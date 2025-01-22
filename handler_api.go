@@ -141,6 +141,62 @@ type UserResponse struct {
 	Email     string    `json:"email"`
 }
 
+func (cfg *apiConfig) handlerCredentialsChange(w http.ResponseWriter, r *http.Request) {
+	type parameters struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
+	params := parameters{}
+	resp := UserResponse{}
+
+	decoder := json.NewDecoder(r.Body)
+
+	err := decoder.Decode(&params)
+	if err != nil {
+		respondWithError(w, 400, "Error decoding JSON", err)
+		return
+	}
+
+	reqToken, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		respondWithError(w, 401, "Unauthorized", err)
+		return
+	}
+
+	userID, err := auth.ValidateJWT(reqToken, cfg.secret)
+	if err != nil {
+		respondWithError(w, 401, "Unauthorized", err)
+		return
+	}
+
+	hashedPassword, err := auth.HashPassword(params.Password)
+	if err != nil {
+		respondWithError(w, 500, "An error occurred while hashing password", err)
+		return
+	}
+
+	updateParams := database.UpdateEmailAndPasswordParams{
+		Email: params.Email,
+		HashedPassword: sql.NullString{
+			String: hashedPassword,
+			Valid:  true,
+		},
+		ID: userID,
+	}
+
+	user, err := cfg.db.UpdateEmailAndPassword(r.Context(), updateParams)
+	if err != nil {
+		respondWithError(w, 500, "An error occurred while updating credentials", err)
+		return
+	}
+	resp.ID = user.ID
+	resp.CreatedAt = user.CreatedAt
+	resp.UpdatedAt = user.UpdatedAt
+	resp.Email = user.Email
+
+	respondWithJson(w, 200, resp)
+}
+
 func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 	type parameters struct {
 		Email    string `json:"email"`
