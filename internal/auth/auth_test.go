@@ -70,3 +70,39 @@ func TestMakeJWT(t *testing.T) {
 		t.Fatalf("MakeJWT(%v, %v, %v): expected issued_at to be '%v', got %v", userID, tokenSecret, expiresAt, time.Now(), claims.IssuedAt.Time.Sub(time.Now()))
 	}
 }
+
+func TestValidateJWT(t *testing.T) {
+	userID := uuid.New()
+	tokenSecret := "supersecret"
+	expiresAt := time.Minute * 5
+
+	tokenString, err := MakeJWT(userID, tokenSecret, expiresAt)
+	if err != nil {
+		t.Fatalf("MakeJWT(%v, %v, %v): expected no error, got %v", userID, tokenSecret, expiresAt, err)
+	}
+
+	returnedUserID, err := ValidateJWT(tokenString, tokenSecret)
+	if err != nil {
+		t.Fatalf("ValidateJWT(%v, %v): expected no error, got %v", tokenString, tokenSecret, err)
+	}
+
+	if returnedUserID != userID {
+		t.Fatalf("ValidateJWT(%v, %v): expected %v, got %v", tokenString, tokenSecret, userID, returnedUserID)
+	}
+
+	_, err = ValidateJWT(tokenString, "wrong secret")
+	if err == nil {
+		t.Fatalf("ValidateJWT('', 'whyamidoingthis'): expected error, got no error")
+	}
+
+	expiresAt = time.Minute * -5
+	tokenString, err = MakeJWT(userID, tokenSecret, expiresAt)
+	if err != nil {
+		t.Fatalf("MakeJWT(%v, %v, %v): expected no error, got %v", userID, tokenSecret, expiresAt, err)
+	}
+
+	returnedUserID, err = ValidateJWT(tokenString, tokenSecret)
+	if err == nil {
+		t.Fatalf("ValidateJWT(%v, %v): expected error, got no error", tokenString, tokenSecret)
+	}
+}
