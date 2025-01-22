@@ -11,6 +11,7 @@ returning *;
 
 -- name: GetChirps :many
 select * from chirps
+where coalesce(sqlc.narg('user_id'), user_id) is null or user_id =coalesce(sqlc.narg('user_id'), user_id) 
 order by created_at;
 
 -- name: GetChirp :one

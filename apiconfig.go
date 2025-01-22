@@ -14,6 +14,7 @@ type apiConfig struct {
 	db             *database.Queries
 	platform       string
 	secret         string
+	polkaKey       string
 }
 
 func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
@@ -27,10 +28,12 @@ func newApiConfig(db *database.Queries) *apiConfig {
 	godotenv.Load()
 	platform := os.Getenv("PLATFORM")
 	secret := os.Getenv("SECRET")
+	polkaKey := os.Getenv("POLKA_KEY")
 	cfg := &apiConfig{}
 	cfg.fileserverHits.Store(0)
 	cfg.db = db
 	cfg.platform = platform
 	cfg.secret = secret
+	cfg.polkaKey = polkaKey
 	return cfg
 }

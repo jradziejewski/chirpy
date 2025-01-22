@@ -46,7 +46,17 @@ func (cfg *apiConfig) handlerGetChirp(w http.ResponseWriter, r *http.Request) {
 }
 
 func (cfg *apiConfig) handlerGetChirps(w http.ResponseWriter, r *http.Request) {
-	chirps, err := cfg.db.GetChirps(r.Context())
+	var userID interface{}
+	authorID := r.URL.Query().Get("author_id")
+	if authorID != "" {
+		parsed, err := uuid.Parse(authorID)
+		if err != nil {
+			respondWithError(w, 500, "Could not parse author_id", err)
+			return
+		}
+		userID = parsed
+	}
+	chirps, err := cfg.db.GetChirps(r.Context(), userID)
 	if err != nil {
 		respondWithError(w, 500, "Could not retrieve chirps", err)
 		return
@@ -175,10 +185,11 @@ func (cfg *apiConfig) handlerDeleteChirp(w http.ResponseWriter, r *http.Request)
 // Users
 
 type UserResponse struct {
-	ID        uuid.UUID `json:"id"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
-	Email     string    `json:"email"`
+	ID          uuid.UUID `json:"id"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+	Email       string    `json:"email"`
+	IsChirpyRed bool      `json:"is_chirpy_red"`
 }
 
 func (cfg *apiConfig) handlerCredentialsChange(w http.ResponseWriter, r *http.Request) {
@@ -233,6 +244,7 @@ func (cfg *apiConfig) handlerCredentialsChange(w http.ResponseWriter, r *http.Re
 	resp.CreatedAt = user.CreatedAt
 	resp.UpdatedAt = user.UpdatedAt
 	resp.Email = user.Email
+	resp.IsChirpyRed = user.IsChirpyRed.Bool
 
 	respondWithJson(w, 200, resp)
 }
@@ -302,6 +314,7 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 	resp.Email = user.Email
 	resp.CreatedAt = user.CreatedAt
 	resp.UpdatedAt = user.UpdatedAt
+	resp.IsChirpyRed = user.IsChirpyRed.Bool
 	resp.Token = token
 	resp.RefreshToken = refreshToken.Token
 
@@ -351,8 +364,54 @@ func (cfg *apiConfig) handlerCreateUser(w http.ResponseWriter, r *http.Request) 
 	resp.Email = user.Email
 	resp.CreatedAt = user.CreatedAt
 	resp.UpdatedAt = user.UpdatedAt
+	resp.IsChirpyRed = user.IsChirpyRed.Bool
 
 	respondWithJson(w, 201, resp)
+}
+
+// Webhooks
+
+func (cfg *apiConfig) HandlerUpdateIsChirpyRed(w http.ResponseWriter, r *http.Request) {
+	apiKey, err := auth.GetAPIKey(r.Header)
+	if apiKey != cfg.polkaKey || err != nil {
+		respondWithError(w, 401, "Unauthorized", err)
+		return
+	}
+
+	type parameters struct {
+		Event string `json:"event"`
+		Data  struct {
+			UserID uuid.UUID `json:"user_id"`
+		} `json:"data"`
+	}
+	params := parameters{}
+
+	decoder := json.NewDecoder(r.Body)
+	err = decoder.Decode(&params)
+	if err != nil {
+		respondWithError(w, 204, "Error decoding JSON", err)
+		return
+	}
+
+	if params.Event != "user.upgraded" {
+		w.WriteHeader(204)
+		return
+	}
+
+	updateParams := database.UpdateIsChirpyRedParams{
+		IsChirpyRed: sql.NullBool{
+			Bool:  true,
+			Valid: true,
+		},
+		ID: params.Data.UserID,
+	}
+
+	_, err = cfg.db.UpdateIsChirpyRed(r.Context(), updateParams)
+	if err != nil {
+		respondWithError(w, 404, "User not found", err)
+		return
+	}
+	w.WriteHeader(204)
 }
 
 // Other
