@@ -9,15 +9,39 @@ import (
 	"github.com/jradziejewski/chirpy/internal/database"
 )
 
-func (cfg *apiConfig) handlerGetChirps(w http.ResponseWriter, r *http.Request) {
-	type ChirpResponse struct {
-		ID        uuid.UUID `json:"id"`
-		CreatedAt time.Time `json:"created_at"`
-		UpdatedAt time.Time `json:"updated_at"`
-		Body      string    `json:"body"`
-		UserID    uuid.UUID `json:"user_id"`
+type ChirpResponse struct {
+	ID        uuid.UUID `json:"id"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+	Body      string    `json:"body"`
+	UserID    uuid.UUID `json:"user_id"`
+}
+
+func (cfg *apiConfig) handlerGetChirp(w http.ResponseWriter, r *http.Request) {
+	chirpID := r.PathValue("chirpID")
+	resp := ChirpResponse{}
+
+	parsedChirpID, err := uuid.Parse(chirpID)
+	if err != nil {
+		respondWithError(w, 400, "Provided ChirpID could not be parsed", err)
+		return
 	}
 
+	chirp, err := cfg.db.GetChirp(r.Context(), parsedChirpID)
+	if err != nil {
+		respondWithError(w, 404, "Could not retrieve chirp", err)
+		return
+	}
+	resp.ID = chirp.ID
+	resp.CreatedAt = chirp.CreatedAt
+	resp.UpdatedAt = chirp.UpdatedAt
+	resp.Body = chirp.Body
+	resp.UserID = chirp.UserID
+
+	respondWithJson(w, 200, resp)
+}
+
+func (cfg *apiConfig) handlerGetChirps(w http.ResponseWriter, r *http.Request) {
 	chirps, err := cfg.db.GetChirps(r.Context())
 	if err != nil {
 		respondWithError(w, 500, "Could not retrieve chirps", err)
