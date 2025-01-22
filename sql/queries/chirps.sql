@@ -18,4 +18,8 @@ select * from chirps
 where id = $1;
 
 -- name: DeleteChirps :exec
-DELETE FROM chirps;
+delete from chirps;
+
+-- name: DeleteChirp :exec
+delete from chirps
+where id = $1;

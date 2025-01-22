@@ -84,7 +84,7 @@ select id, u.created_at, u.updated_at, email, hashed_password, token, r.created_
 inner join refresh_tokens r
 on r.user_id = u.id
 where r.token = $1
-and expires_at > current_timestamp
+and expires_at > NOW()
 and revoked_at is null
 `
 

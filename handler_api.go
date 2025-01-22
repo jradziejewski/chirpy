@@ -132,6 +132,46 @@ func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request)
 	respondWithJson(w, 201, resp)
 }
 
+func (cfg *apiConfig) handlerDeleteChirp(w http.ResponseWriter, r *http.Request) {
+	token, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		respondWithError(w, 401, "Unauthorized", err)
+		return
+	}
+
+	userID, err := auth.ValidateJWT(token, cfg.secret)
+	if err != nil {
+		respondWithError(w, 401, "Unauthorized", err)
+		return
+	}
+
+	chirpID := r.PathValue("chirpID")
+
+	parsedChirpID, err := uuid.Parse(chirpID)
+	if err != nil {
+		respondWithError(w, 400, "Provided ChirpID could not be parsed", err)
+		return
+	}
+
+	chirp, err := cfg.db.GetChirp(r.Context(), parsedChirpID)
+	if err != nil {
+		respondWithError(w, 404, "Could not retrieve chirp", err)
+		return
+	}
+	if chirp.UserID != userID {
+		respondWithError(w, 403, "Forbidden", nil)
+		return
+	}
+
+	err = cfg.db.DeleteChirp(r.Context(), parsedChirpID)
+	if err != nil {
+		respondWithError(w, 500, "Could not delete chirp", err)
+		return
+	}
+
+	w.WriteHeader(204)
+}
+
 // Users
 
 type UserResponse struct {
