@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"net/http"
+	"sort"
 	"time"
 
 	"github.com/google/uuid"
@@ -48,6 +49,7 @@ func (cfg *apiConfig) handlerGetChirp(w http.ResponseWriter, r *http.Request) {
 func (cfg *apiConfig) handlerGetChirps(w http.ResponseWriter, r *http.Request) {
 	var userID interface{}
 	authorID := r.URL.Query().Get("author_id")
+	sortParam := r.URL.Query().Get("sort")
 	if authorID != "" {
 		parsed, err := uuid.Parse(authorID)
 		if err != nil {
@@ -61,6 +63,7 @@ func (cfg *apiConfig) handlerGetChirps(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, 500, "Could not retrieve chirps", err)
 		return
 	}
+
 	var chirpResponses []ChirpResponse
 	for _, chirp := range chirps {
 		chirpResponses = append(chirpResponses, ChirpResponse{
@@ -69,6 +72,16 @@ func (cfg *apiConfig) handlerGetChirps(w http.ResponseWriter, r *http.Request) {
 			UpdatedAt: chirp.UpdatedAt,
 			Body:      chirp.Body,
 			UserID:    chirp.UserID,
+		})
+	}
+
+	if sortParam == "desc" {
+		sort.Slice(chirpResponses, func(i, j int) bool {
+			return chirpResponses[i].CreatedAt.After(chirpResponses[j].CreatedAt)
+		})
+	} else {
+		sort.Slice(chirpResponses, func(i, j int) bool {
+			return chirpResponses[j].CreatedAt.After(chirpResponses[i].CreatedAt)
 		})
 	}
 
